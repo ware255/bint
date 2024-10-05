@@ -47,8 +47,17 @@ public:
     void ldiv(const int&);
     void div(const bint&);
 
+    bint operator+(const bint&);
+    bint operator-(const bint&);
+    bint operator*(const bint&);
+    bint operator/(const bint&);
+    bint operator%(const bint&);
+
     void doCarry(List&);
     void print();
+
+    friend std::istream& operator>>(std::istream&, bint&);
+    friend std::ostream& operator<<(std::ostream&, const bint&);
 };
 
 bint& bint::operator=(const bint& num) {
@@ -229,6 +238,12 @@ void bint::add(const bint& num) {
     z = std::move(res);
 }
 
+bint bint::operator+(const bint& num) {
+    bint res = *this;
+    res.add(num);
+    return res;
+}
+
 void bint::sub(const bint& num) {
     List a = this->z;
     List b = num.z;
@@ -300,6 +315,12 @@ void bint::sub(const bint& num) {
     }
 
     z = std::move(res);
+}
+
+bint bint::operator-(const bint& num) {
+    bint res = *this;
+    res.sub(num);
+    return res;
 }
 
 void bint::lmul(const int& num) {
@@ -487,6 +508,19 @@ void bint::mul_fft(const bint& num) {
     bint::to_bint(str);
 }
 
+bint bint::operator*(const bint& num) {
+    bint res = *this;
+
+    if (bint("9999") >= num)
+        res.lmul(num.z[0]);
+    else if ((this->z.size() + num.z.size()) < 128)
+        res.mul(num);
+    else
+        res.mul_fft(num);
+
+    return res;
+}
+
 void bint::ldiv(const int& num) {
     if (num == 0)
         throw std::invalid_argument("Division by zero");
@@ -547,6 +581,27 @@ void bint::div(const bint& num) {
     z = std::move(quotient.get());
 }
 
+bint bint::operator/(const bint& num) {
+    bint res = *this;
+
+    if (bint("9999") >= num)
+        res.ldiv(num.z[0]);
+    else
+        res.div(num);
+
+    return res;
+}
+
+bint bint::operator%(const bint& num) {
+    bint res, x, y;
+
+    x = *this / num;
+    y = x * num;
+    res = *this - y;
+
+    return res;
+}
+
 void bint::doCarry(List& a) {
     carry = 0;
     for (int i = a.size() - 1; i >= 0; i--) {
@@ -570,4 +625,28 @@ void bint::print() {
     for (int i = 1; i < z.size(); i++)
         printf(" %04d", z[i]);
     printf("\n");
+}
+
+std::istream& operator>>(std::istream& in, bint& num) {
+    std::string input;
+    in >> input;
+    num = bint(input);
+    return in;
+}
+
+std::ostream& operator<<(std::ostream& out, const bint& num) {
+    String value = "";
+    for (int i = num.z.size() - 1; i > 0; --i) {
+        value = std::to_string(num.z[i]) + value;
+        while (value.length() % 4 != 0)
+            value = '0' + value;
+    }
+    value = std::to_string(num.z[0]) + value;
+
+    if (num.sign == -1)
+        value = '-' + value;
+
+    out << value;
+
+    return out;
 }
