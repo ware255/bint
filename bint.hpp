@@ -25,10 +25,13 @@ class bint {
     List get() { return z; }
 public:
     bint() : z({0}), sign(0) {}
+    bint(const int& num) { to_bint(std::to_string(num)); }
     bint(const String& num) { to_bint(num); }
     bint(const bint& num) : z(num.z), sign(num.sign) {}
-    void to_bint(String str);
+    void to_bint(String);
+    friend String to_string(bint);
 
+    bint& operator=(const int&);
     bint& operator=(const bint&);
     bint& operator=(const String&);
 
@@ -47,11 +50,11 @@ public:
     void ldiv(const int&);
     void div(const bint&);
 
-    bint operator+(const bint&);
-    bint operator-(const bint&);
-    bint operator*(const bint&);
-    bint operator/(const bint&);
-    bint operator%(const bint&);
+    bint operator+(const bint&) const;
+    bint operator-(const bint&) const;
+    bint operator*(const bint&) const;
+    bint operator/(const bint&) const;
+    bint operator%(const bint&) const;
 
     void doCarry(List&);
     void print();
@@ -59,6 +62,11 @@ public:
     friend std::istream& operator>>(std::istream&, bint&);
     friend std::ostream& operator<<(std::ostream&, const bint&);
 };
+
+bint& bint::operator=(const int& num) {
+    to_bint(std::to_string(num));
+    return *this;
+}
 
 bint& bint::operator=(const bint& num) {
     z = std::move(num.z);
@@ -90,6 +98,8 @@ void bint::to_bint(String str) {
         sign = -1;
         str.erase(str.begin());
     }
+    else if (str == "0")
+        sign = 0;
     else
         sign = 1;
 
@@ -105,6 +115,21 @@ void bint::to_bint(String str) {
         for (j = 0; j < 4; j++)
             if ((i * 4 + j) < str.size())
                 z[i] += (str[i * 4 + j] - '0') * bint::pow(10, 3 - j);
+}
+
+String to_string(bint num) {
+    String value = "";
+    for (int i = num.z.size() - 1; i > 0; --i) {
+        value = std::to_string(num.z[i]) + value;
+        while (value.length() % 4 != 0)
+            value = '0' + value;
+    }
+    value = std::to_string(num.z[0]) + value;
+
+    if (num.sign == -1)
+        value = '-' + value;
+
+    return value;
 }
 
 int bint::cmpbint(const List& a, const List& b) {
@@ -153,23 +178,17 @@ bool bint::operator>=(const bint& num) {
 }
 
 bool bint::operator==(const bint& num) {
-    if ((this->sign ^ num.sign) == 0) {
-        if (this->sign ==  0 && num.sign ==  0)
-            return true;
-        return bint::cmpbint(this->z, num.z) == 0 ? true : false;
-    }
-    else
+    if (this->sign != num.sign)
         return false;
+
+    if (this->sign == 0 && num.sign == 0)
+        return true;
+
+    return bint::cmpbint(this->z, num.z) == 0;
 }
 
 bool bint::operator!=(const bint& num) {
-    if ((this->sign ^ num.sign) == 0) {
-        if (this->sign ==  0 && num.sign ==  0)
-            return false;
-        return bint::cmpbint(this->z, num.z) != 0 ? true : false;
-    }
-    else
-        return true;
+    return !(*this == num);
 }
 
 void bint::add(const bint& num) {
@@ -238,7 +257,7 @@ void bint::add(const bint& num) {
     z = std::move(res);
 }
 
-bint bint::operator+(const bint& num) {
+bint bint::operator+(const bint& num) const {
     bint res = *this;
     res.add(num);
     return res;
@@ -317,7 +336,7 @@ void bint::sub(const bint& num) {
     z = std::move(res);
 }
 
-bint bint::operator-(const bint& num) {
+bint bint::operator-(const bint& num) const {
     bint res = *this;
     res.sub(num);
     return res;
@@ -382,6 +401,12 @@ void bint::mul(const bint& num) {
 
     while (!res.empty() && res[0] == 0)
         res.erase(res.begin());
+
+    if (res.empty()) {
+        z = {0};
+        sign = 0;
+        return;
+    }
 
     z = std::move(res);
 }
@@ -500,6 +525,12 @@ void bint::mul_fft(const bint& num) {
 
     while (!result.empty() && result[0] == 0)
         result.erase(result.begin());
+
+    if (result.empty()) {
+        z = {0};
+        sign = 0;
+        return;
+    }
     
     String str;
     for (i = 0; i < result.size(); i++)
@@ -508,7 +539,7 @@ void bint::mul_fft(const bint& num) {
     bint::to_bint(str);
 }
 
-bint bint::operator*(const bint& num) {
+bint bint::operator*(const bint& num) const {
     bint res = *this;
 
     if (bint("9999") >= num)
@@ -547,6 +578,12 @@ void bint::ldiv(const int& num) {
     while (!res.empty() && res[0] == 0)
         res.erase(res.begin());
 
+    if (res.empty()) {
+        z = {0};
+        sign = 0;
+        return;
+    }
+
     z = std::move(res);
 }
 
@@ -560,6 +597,12 @@ void bint::div(const bint& num) {
         sign = 1;
     else if (this->sign == -1 || num.sign == -1)
         sign = -1;
+
+    if (*this < num) {
+        z = {0};
+        sign = 0;
+        return;
+    }
 
     bint rem(*this);
     bint m(num), s("1"), quotient("0");
@@ -581,7 +624,7 @@ void bint::div(const bint& num) {
     z = std::move(quotient.get());
 }
 
-bint bint::operator/(const bint& num) {
+bint bint::operator/(const bint& num) const {
     bint res = *this;
 
     if (bint("9999") >= num)
@@ -592,7 +635,7 @@ bint bint::operator/(const bint& num) {
     return res;
 }
 
-bint bint::operator%(const bint& num) {
+bint bint::operator%(const bint& num) const {
     bint res, x, y;
 
     x = *this / num;
@@ -635,16 +678,7 @@ std::istream& operator>>(std::istream& in, bint& num) {
 }
 
 std::ostream& operator<<(std::ostream& out, const bint& num) {
-    String value = "";
-    for (int i = num.z.size() - 1; i > 0; --i) {
-        value = std::to_string(num.z[i]) + value;
-        while (value.length() % 4 != 0)
-            value = '0' + value;
-    }
-    value = std::to_string(num.z[0]) + value;
-
-    if (num.sign == -1)
-        value = '-' + value;
+    String value = to_string(num);
 
     out << value;
 
