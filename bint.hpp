@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdio>
-#include <cmath>
 #include <complex>
 #include <vector>
 #include <string>
@@ -22,10 +21,16 @@ class bint {
     void reverse(List& a);
     void fft(std::vector<cd>& a, bool invert);
     int cmpbint(const List& a, const List& b);
-    List get() { return z; }
 public:
     bint() : z({0}), sign(0) {}
-    bint(const int& num) { to_bint(std::to_string(num)); }
+    bint(const int& num) {
+        if (num > 0 && num <= 9999) {
+            sign = 1;
+            z = {num};
+        }
+        else
+            to_bint(std::to_string(num));
+    }
     bint(const String& num) { to_bint(num); }
     bint(const bint& num) : z(num.z), sign(num.sign) {}
     void to_bint(String);
@@ -75,7 +80,12 @@ public:
 };
 
 bint& bint::operator=(const int& num) {
-    to_bint(std::to_string(num));
+    if (num > 0 && num <= 9999) {
+        sign = 1;
+        z = {num};
+    }
+    else
+        to_bint(std::to_string(num));
     return *this;
 }
 
@@ -119,7 +129,7 @@ void bint::to_bint(String str) {
     for (int i = 0; i < z.size(); i++)
         z[i] = 0;
 
-    while (str.size() % 4 != 0)
+    while (str.size() & 3 != 0)
         str = '0' + str;
 
     for (i = 0; i < N; i++)
@@ -132,7 +142,7 @@ String to_string(bint num) {
     String value = "";
     for (int i = num.z.size() - 1; i > 0; --i) {
         value = std::to_string(num.z[i]) + value;
-        while (value.length() % 4 != 0)
+        while (value.length() & 3 != 0)
             value = '0' + value;
     }
     value = std::to_string(num.z[0]) + value;
@@ -218,7 +228,7 @@ void bint::add(const bint& num) {
             res = num;
             res.sub(*this);
         }
-        z = std::move(res.get());
+        z = std::move(res.z);
         return;
     }
 
@@ -234,11 +244,11 @@ void bint::add(const bint& num) {
             res = *this;
             res.sub(num);
         }
-        z = std::move(res.get());
+        z = std::move(res.z);
         return;
     }
 
-    List res = {0};
+    List res;
     int N = std::max(a.size(), b.size());
     int A, B;
     res.resize(N);
@@ -283,7 +293,7 @@ void bint::sub(const bint& num) {
         bint temp(num), res(*this);
         temp.sign = 1;
         res.add(temp);
-        z = std::move(res.get());
+        z = std::move(res.z);
         return;
     }
 
@@ -292,7 +302,7 @@ void bint::sub(const bint& num) {
         bint temp(*this);
         temp.sign = 1;
         temp.add(num);
-        z = std::move(temp.get());
+        z = std::move(temp.z);
         return;
     }
 
@@ -316,7 +326,7 @@ void bint::sub(const bint& num) {
         }
     }
 
-    List res = {0};
+    List res;
     int N = a.size() > b.size() ? a.size() : b.size();
     int A, B;
     res.resize(N);
@@ -369,7 +379,7 @@ void bint::lmul(const int& num) {
 
     const List& a = this->z;
 
-    List res = {0};
+    List res;
     res.resize(a.size());
     carry = 0;
 
@@ -396,7 +406,7 @@ void bint::mul(const bint& num) {
     else if (this->sign == -1 || num.sign == -1)
         sign = -1;
 
-    List res = {0};
+    List res;
     res.resize(a.size() + b.size() - 1);
 
     int i, j;
@@ -453,7 +463,7 @@ void bint::fft(std::vector<cd>& a, bool invert) {
 }
 
 void bint::reverse(List& a) {
-    for (int i = 0; i < a.size() / 2; i++) {
+    for (int i = 0; i < a.size() >> 1; i++) {
         int temp = a[i];
         a[i] = a[a.size() - 1 - i];
         a[a.size() - 1 - i] = temp;
@@ -461,10 +471,8 @@ void bint::reverse(List& a) {
 }
 
 void bint::mul_fft(const bint& num) {
-    const List& a = this->z;
-    const List& b = num.z;
     List x, y;
-    int arr[4], i;
+    int i;
 
     sign = 1;
 
@@ -473,52 +481,29 @@ void bint::mul_fft(const bint& num) {
     else if (this->sign == -1 || num.sign == -1)
         sign = -1;
 
-    for (int num : a) {
-        i = 0;
-        while (num > 0) {
-            arr[i] = num % 10;
-            num /= 10;
-            i++;
-        }
-        for (i = 0; i < 2; i++) {
-            int temp = arr[i];
-            arr[i] = arr[3 - i];
-            arr[3 - i] = temp;
-        }
-        for (i = 0; i < 4; i++)
-            x.emplace_back(arr[i]);
-    }
+    String str_a = to_string(*this);
+    for (i = 0; i < str_a.size(); ++i)
+        x.emplace_back(str_a[str_a.size() - i - 1] - '0');
 
-    for (int num : b) {
-        i = 0;
-        while (num > 0) {
-            arr[i] = num % 10;
-            num /= 10;
-            i++;
-        }
-        for (i = 0; i < 2; i++) {
-            int temp = arr[i];
-            arr[i] = arr[3 - i];
-            arr[3 - i] = temp;
-        }
-        for (i = 0; i < 4; i++)
-            y.emplace_back(arr[i]);
-    }
-
-    bint::reverse(x);
-    bint::reverse(y);
+    String str_b = to_string(num);
+    for (i = 0; i < str_b.size(); ++i)
+        y.emplace_back(str_b[str_b.size() - i - 1] - '0');
 
     std::vector<cd> fa(x.begin(), x.end()), fb(y.begin(), y.end());
+
     int n = 1;
     while (n < x.size() + y.size()) 
         n <<= 1;
+
     fa.resize(n);
     fb.resize(n);
 
     bint::fft(fa, false);
     bint::fft(fb, false);
+
     for (i = 0; i < n; i++)
         fa[i] *= fb[i];
+
     bint::fft(fa, true);
 
     List result(n);
@@ -536,12 +521,6 @@ void bint::mul_fft(const bint& num) {
 
     while (!result.empty() && result[0] == 0)
         result.erase(result.begin());
-
-    if (result.empty()) {
-        z = {0};
-        sign = 0;
-        return;
-    }
     
     String str;
     for (i = 0; i < result.size(); i++)
@@ -553,9 +532,9 @@ void bint::mul_fft(const bint& num) {
 bint bint::operator*(const bint& num) const {
     bint res = *this;
 
-    if (bint("9999") >= num)
+    if (bint(9999) >= num)
         res.lmul(num.z[0]);
-    else if ((this->z.size() + num.z.size()) < 128)
+    else if ((this->z.size() + num.z.size()) < 32)
         res.mul(num);
     else
         res.mul_fft(num);
@@ -576,7 +555,7 @@ void bint::ldiv(const int& num) {
 
     const List& a = this->z;
 
-    List res = {0};
+    List res;
     res.resize(a.size());
     int remainder = 0;
 
@@ -616,7 +595,7 @@ void bint::div(const bint& num) {
     }
 
     bint rem(*this);
-    bint m(num), s("1"), quotient("0");
+    bint m(num), s(1), quotient(0);
 
     while (rem > m) {
         m.lmul(2);
@@ -632,13 +611,13 @@ void bint::div(const bint& num) {
         quotient.add(s);
     }
 
-    z = std::move(quotient.get());
+    z = std::move(quotient.z);
 }
 
 bint bint::operator/(const bint& num) const {
     bint res = *this;
 
-    if (bint("9999") >= num)
+    if (bint(9999) >= num)
         res.ldiv(num.z[0]);
     else
         res.div(num);
@@ -684,7 +663,7 @@ bint bint::operator--(int) {
 
 void bint::shr(const bint& num) {
     bint res = *this;
-    for (bint i = 0; i < num; i=i+1)
+    for (bint i = 0; i < num; i++)
         res.ldiv(2);
     sign = res.sign;
     z = std::move(res.z);
@@ -698,7 +677,7 @@ bint bint::operator>>(const bint& num) const {
 
 void bint::shl(const bint& num) {
     bint res = *this;
-    for (bint i = 0; i < num; i=i+1)
+    for (bint i = 0; i < num; i++)
         res.lmul(2);
     sign = res.sign;
     z = std::move(res.z);
@@ -731,7 +710,7 @@ void bint::print() {
     else
         printf("%d", z[0]);
     for (int i = 1; i < z.size(); i++)
-        printf(" %04d", z[i]);
+        printf("%04d", z[i]);
     printf("\n");
 }
 
@@ -744,8 +723,6 @@ std::istream& operator>>(std::istream& in, bint& num) {
 
 std::ostream& operator<<(std::ostream& out, const bint& num) {
     String value = to_string(num);
-
     out << value;
-
     return out;
 }
