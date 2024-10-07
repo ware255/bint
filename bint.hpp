@@ -50,11 +50,22 @@ public:
     void ldiv(const int&);
     void div(const bint&);
 
+    void shr(const bint&);
+    void shl(const bint&);
+
     bint operator+(const bint&) const;
     bint operator-(const bint&) const;
     bint operator*(const bint&) const;
     bint operator/(const bint&) const;
     bint operator%(const bint&) const;
+
+    bint& operator++();
+    bint& operator--();
+    bint operator++(int);
+    bint operator--(int);
+
+    bint operator>>(const bint&) const;
+    bint operator<<(const bint&) const;
 
     void doCarry(List&);
     void print();
@@ -638,10 +649,64 @@ bint bint::operator/(const bint& num) const {
 bint bint::operator%(const bint& num) const {
     bint res, x, y;
 
+    x = num;
+    if (x == 2)
+        return this->z[this->z.size() - 1] & 1;
+
     x = *this / num;
     y = x * num;
     res = *this - y;
 
+    return res;
+}
+
+bint& bint::operator++() {
+    *this = *this + 1;
+    return *this;
+}
+
+bint& bint::operator--() {
+    *this = *this - 1;
+    return *this;
+}
+
+bint bint::operator++(int) {
+    bint temp = *this;
+    *this = *this + 1;
+    return temp;
+}
+
+bint bint::operator--(int) {
+    bint temp = *this;
+    *this = *this - 1;
+    return temp;
+}
+
+void bint::shr(const bint& num) {
+    bint res = *this;
+    for (bint i = 0; i < num; i=i+1)
+        res.ldiv(2);
+    sign = res.sign;
+    z = std::move(res.z);
+}
+
+bint bint::operator>>(const bint& num) const {
+    bint res = *this;
+    res.shr(num);
+    return res;
+}
+
+void bint::shl(const bint& num) {
+    bint res = *this;
+    for (bint i = 0; i < num; i=i+1)
+        res.lmul(2);
+    sign = res.sign;
+    z = std::move(res.z);
+}
+
+bint bint::operator<<(const bint& num) const {
+    bint res = *this;
+    res.shl(num);
     return res;
 }
 
