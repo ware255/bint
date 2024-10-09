@@ -39,7 +39,6 @@ public:
     void sub(const bint&);
     void lmul(const int&);
     void mul(const bint&);
-    void mul_fft(const bint&);
     void ldiv(const int&);
     void div(const bint&);
 
@@ -145,7 +144,7 @@ String bint::to_string() const {
     String value = "";
     for (int i = static_cast<int>(this->z.size()) - 1; i > 0; --i) {
         value = std::to_string(this->z[i]) + value;
-        while (value.length() % 8 != 0)
+        while (value.length() % digit != 0)
             value = '0' + value;
     }
     value = std::to_string(this->z[0]) + value;
