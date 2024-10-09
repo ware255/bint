@@ -1,42 +1,30 @@
 #pragma once
 
 #include <cstdio>
-#include <complex>
 #include <vector>
 #include <string>
 
-using List = std::vector<int>;
+using List = std::vector<long long>;
 using String = std::string;
 
-using cd = std::complex<double>;
-#define PI 3.14159265358979323846
-
 class bint {
-    int base = 10000;
-    int carry, borrow;
+    const int digit = 8;
+    int base = bint::pow(10, digit);
+    long long carry, borrow;
     int sign;
     List z;
 
-    int pow(int b, int e);
-    void reverse(List& a);
-    void fft(std::vector<cd>& a, bool invert);
-    int cmpbint(const List& a, const List& b);
+    long long pow(long long, long long);
+    int cmpbint(const List&, const List&);
 public:
-    bint() : z({0}), sign(0) {}
-    bint(const int& num) {
-        if (num > 0 && num <= 9999) {
-            sign = 1;
-            z = {num};
-        }
-        else
-            to_bint(std::to_string(num));
-    }
+    bint();
+    bint(const long long&);
     bint(const String& num) { to_bint(num); }
-    bint(const bint& num) : z(num.z), sign(num.sign) {}
+    bint(const bint&);
     void to_bint(String);
-    friend String to_string(bint);
+    String to_string() const;
 
-    bint& operator=(const int&);
+    bint& operator=(const long long&);
     bint& operator=(const bint&);
     bint& operator=(const String&);
 
@@ -79,8 +67,25 @@ public:
     friend std::ostream& operator<<(std::ostream&, const bint&);
 };
 
-bint& bint::operator=(const int& num) {
-    if (num > 0 && num <= 9999) {
+bint::bint() {
+    z = {}, sign = 0;
+}
+
+bint::bint(const long long& num) {
+    if (num > 0 && num <= (base - 1)) {
+        sign = 1;
+        z = {num};
+    }
+    else
+        to_bint(std::to_string(num));
+}
+
+bint::bint(const bint& num) {
+    z = {num.z}, sign = num.sign;
+}
+
+bint& bint::operator=(const long long& num) {
+    if (num > 0 && num <= (base - 1)) {
         sign = 1;
         z = {num};
     }
@@ -100,8 +105,8 @@ bint& bint::operator=(const String& num) {
     return *this;
 }
 
-int bint::pow(int b, int e) {
-    int result = 1;
+long long bint::pow(long long b, long long e) {
+    long long result = 1;
     while (e > 0) {
         if ((e & 1) == 1) {
             e -= 1;
@@ -124,38 +129,36 @@ void bint::to_bint(String str) {
     else
         sign = 1;
 
-    int N = (str.size() + 4 - 1) / 4, i, j;
+    int N = (static_cast<int>(str.size()) + digit - 1) / digit, i, j;
     z.resize(N);
-    for (int i = 0; i < z.size(); i++)
-        z[i] = 0;
 
-    while (str.size() & 3 != 0)
+    while (str.size() % digit != 0)
         str = '0' + str;
 
     for (i = 0; i < N; i++)
-        for (j = 0; j < 4; j++)
-            if ((i * 4 + j) < str.size())
-                z[i] += (str[i * 4 + j] - '0') * bint::pow(10, 3 - j);
+        for (j = 0; j < digit; j++)
+            if ((i * digit + j) < static_cast<int>(str.size()))
+                z[i] += (str[i * digit + j] - '0') * bint::pow(10, digit - 1 - j);
 }
 
-String to_string(bint num) {
+String bint::to_string() const {
     String value = "";
-    for (int i = num.z.size() - 1; i > 0; --i) {
-        value = std::to_string(num.z[i]) + value;
-        while (value.length() & 3 != 0)
+    for (int i = static_cast<int>(this->z.size()) - 1; i > 0; --i) {
+        value = std::to_string(this->z[i]) + value;
+        while (value.length() % 8 != 0)
             value = '0' + value;
     }
-    value = std::to_string(num.z[0]) + value;
+    value = std::to_string(this->z[0]) + value;
 
-    if (num.sign == -1)
+    if (this->sign == -1)
         value = '-' + value;
 
     return value;
 }
 
 int bint::cmpbint(const List& a, const List& b) {
-    int NA = a.size();
-    int NB = b.size();
+    int NA = static_cast<int>(a.size());
+    int NB = static_cast<int>(b.size());
     if (NA > NB) return +1;
     if (NA < NB) return -1;
     for (int i = 0; i < NA; ++i) {
@@ -250,13 +253,13 @@ void bint::add(const bint& num) {
 
     List res;
     int N = std::max(a.size(), b.size());
-    int A, B;
+    long long A, B;
     res.resize(N);
     carry = 0;
 
     for (int i = 0; i < N; ++i) {
-        A = i < a.size() ? a[a.size() - i - 1] : 0;
-        B = i < b.size() ? b[b.size() - i - 1] : 0;
+        A = i < static_cast<int>(a.size()) ? a[a.size() - i - 1] : 0;
+        B = i < static_cast<int>(b.size()) ? b[b.size() - i - 1] : 0;
         res[N - i - 1] = A + B + carry;
 
         if (res[N - i - 1] < base)
@@ -327,14 +330,14 @@ void bint::sub(const bint& num) {
     }
 
     List res;
-    int N = a.size() > b.size() ? a.size() : b.size();
-    int A, B;
+    int N = std::max(a.size(), b.size());
+    long long A, B;
     res.resize(N);
     borrow = 0;
 
     for (int i = 0; i < N; ++i) {
-        A = i < a.size() ? a[a.size() - i - 1] : 0;
-        B = i < b.size() ? b[b.size() - i - 1] : 0;
+        A = i < static_cast<int>(a.size()) ? a[a.size() - i - 1] : 0;
+        B = i < static_cast<int>(b.size()) ? b[b.size() - i - 1] : 0;
         res[N - i - 1] = A - B - borrow;
 
         if (res[N - i - 1] >= 0)
@@ -383,8 +386,8 @@ void bint::lmul(const int& num) {
     res.resize(a.size());
     carry = 0;
 
-    for (int i = a.size() - 1; i >=0; i--) {
-        int w = a[i];
+    for (int i = static_cast<int>(a.size()) - 1; i >=0; i--) {
+        long long w = a[i];
         res[i] = (w * num + carry) % base;
         carry = (w * num + carry) / base;
     }
@@ -411,11 +414,8 @@ void bint::mul(const bint& num) {
 
     int i, j;
 
-    for(i = 0; i < res.size(); i++)
-        res[i] = 0;
-
-    for (j = 0; j < b.size(); j++)
-        for (i = 0; i < a.size(); i++)
+    for (j = 0; j < static_cast<int>(b.size()); j++)
+        for (i = 0; i < static_cast<int>(a.size()); i++)
             res[j + i] += a[i] * b[j];
 
     doCarry(res);
@@ -432,112 +432,13 @@ void bint::mul(const bint& num) {
     z = std::move(res);
 }
 
-void bint::fft(std::vector<cd>& a, bool invert) {
-    int n = a.size(), i, j;
-
-    for (i = 1, j = 0; i < n; i++) {
-        int bit = n >> 1;
-        for (; j & bit; bit >>= 1)
-            j ^= bit;
-        j ^= bit;
-        if (i < j)
-            std::swap(a[i], a[j]);
-    }
-
-    for (int len = 2; len <= n; len <<= 1) {
-        double ang = 2 * PI / len * (invert ? -1 : 1);
-        cd wlen(cos(ang), sin(ang));
-        for (i = 0; i < n; i += len) {
-            cd w(1);
-            for (j = 0; j < (len >> 1); j++) {
-                cd u = a[i+j], v = a[i+j+(len>>1)] * w;
-                a[i+j] = u + v;
-                a[i+j+(len>>1)] = u - v;
-                w *= wlen;
-            }
-        }
-    }
-
-    if (invert)
-        for (cd & x : a) x /= n;
-}
-
-void bint::reverse(List& a) {
-    for (int i = 0; i < a.size() >> 1; i++) {
-        int temp = a[i];
-        a[i] = a[a.size() - 1 - i];
-        a[a.size() - 1 - i] = temp;
-    }
-}
-
-void bint::mul_fft(const bint& num) {
-    List x, y;
-    int i;
-
-    sign = 1;
-
-    if (this->sign == -1 && num.sign == -1)
-        sign = 1;
-    else if (this->sign == -1 || num.sign == -1)
-        sign = -1;
-
-    String str_a = to_string(*this);
-    for (i = 0; i < str_a.size(); ++i)
-        x.emplace_back(str_a[str_a.size() - i - 1] - '0');
-
-    String str_b = to_string(num);
-    for (i = 0; i < str_b.size(); ++i)
-        y.emplace_back(str_b[str_b.size() - i - 1] - '0');
-
-    std::vector<cd> fa(x.begin(), x.end()), fb(y.begin(), y.end());
-
-    int n = 1;
-    while (n < x.size() + y.size()) 
-        n <<= 1;
-
-    fa.resize(n);
-    fb.resize(n);
-
-    bint::fft(fa, false);
-    bint::fft(fb, false);
-
-    for (i = 0; i < n; i++)
-        fa[i] *= fb[i];
-
-    bint::fft(fa, true);
-
-    List result(n);
-    for (i = 0; i < n; i++)
-        result[i] = std::round(fa[i].real());
-
-    carry = 0;
-    for (i = 0; i < n; i++) {
-        result[i] += carry;
-        carry = std::floor(result[i] / 10);
-        result[i] %= 10;
-    }
-
-    bint::reverse(result);
-
-    while (!result.empty() && result[0] == 0)
-        result.erase(result.begin());
-    
-    String str;
-    for (i = 0; i < result.size(); i++)
-        str += result[i] + '0';
-
-    bint::to_bint(str);
-}
-
 bint bint::operator*(const bint& num) const {
     bint res = *this;
 
-    if (bint(9999) >= num)
+    if (bint((base - 1)) >= num)
         res.lmul(num.z[0]);
-    else if ((this->z.size() + num.z.size()) < 32)
-        res.mul(num);
     else
-        res.mul_fft(num);
+        res.mul(num);
 
     return res;
 }
@@ -557,10 +458,10 @@ void bint::ldiv(const int& num) {
 
     List res;
     res.resize(a.size());
-    int remainder = 0;
+    long long remainder = 0;
 
-    for (int i = 0; i < a.size(); i++) {
-        int w = a[i];
+    for (int i = 0; i < static_cast<int>(a.size()); i++) {
+        long long w = a[i];
         res[i] = (w + remainder) / num;
         remainder = ((w + remainder) % num) * base;
     }
@@ -617,7 +518,7 @@ void bint::div(const bint& num) {
 bint bint::operator/(const bint& num) const {
     bint res = *this;
 
-    if (bint(9999) >= num)
+    if (bint((base - 1)) >= num)
         res.ldiv(num.z[0]);
     else
         res.div(num);
@@ -691,7 +592,7 @@ bint bint::operator<<(const bint& num) const {
 
 void bint::doCarry(List& a) {
     carry = 0;
-    for (int i = a.size() - 1; i >= 0; i--) {
+    for (int i = static_cast<int>(a.size()) - 1; i >= 0; i--) {
         a[i] += carry;
         if (a[i] < 0)
             carry = -(-(a[i] + 1) / base + 1);
@@ -706,11 +607,11 @@ void bint::doCarry(List& a) {
 
 void bint::print() {
     if (sign < 0)
-        printf("-%d", z[0]);
+        printf("-%lld", z[0]);
     else
-        printf("%d", z[0]);
-    for (int i = 1; i < z.size(); i++)
-        printf("%04d", z[i]);
+        printf("%lld", z[0]);
+    for (int i = 1; i < static_cast<int>(z.size()); i++)
+        printf("%08lld", z[i]);
     printf("\n");
 }
 
@@ -722,7 +623,7 @@ std::istream& operator>>(std::istream& in, bint& num) {
 }
 
 std::ostream& operator<<(std::ostream& out, const bint& num) {
-    String value = to_string(num);
+    String value = num.to_string();
     out << value;
     return out;
 }
