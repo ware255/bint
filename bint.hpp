@@ -4,27 +4,29 @@
 #include <vector>
 #include <string>
 
-using List = std::vector<long long>;
+typedef long long int64;
+
+using List = std::vector<int64>;
 using String = std::string;
 
 class bint {
     const int digit = 8;
     int base = bint::pow(10, digit);
-    long long carry, borrow;
+    int64 carry, borrow;
     int sign;
     List z;
 
-    long long pow(long long, long long);
+    int64 pow(int64, int64);
     int cmpbint(const List&, const List&);
 public:
     bint();
-    bint(const long long&);
+    bint(const int64&);
     bint(const String& num) { to_bint(num); }
     bint(const bint&);
     void to_bint(String);
     String to_string() const;
 
-    bint& operator=(const long long&);
+    bint& operator=(const int64&);
     bint& operator=(const bint&);
     bint& operator=(const String&);
 
@@ -39,6 +41,7 @@ public:
     void sub(const bint&);
     void lmul(const int&);
     void mul(const bint&);
+    void mul_karatsuba(const bint&);
     void ldiv(const int&);
     void div(const bint&);
 
@@ -59,7 +62,7 @@ public:
     bint operator>>(const bint&) const;
     bint operator<<(const bint&) const;
 
-    void doCarry(List&);
+    //for debugging
     void print();
 
     friend std::istream& operator>>(std::istream&, bint&);
@@ -70,7 +73,7 @@ bint::bint() {
     z = {}, sign = 0;
 }
 
-bint::bint(const long long& num) {
+bint::bint(const int64& num) {
     if (num > 0 && num <= (base - 1)) {
         sign = 1;
         z = {num};
@@ -83,7 +86,7 @@ bint::bint(const bint& num) {
     z = {num.z}, sign = num.sign;
 }
 
-bint& bint::operator=(const long long& num) {
+bint& bint::operator=(const int64& num) {
     if (num > 0 && num <= (base - 1)) {
         sign = 1;
         z = {num};
@@ -104,8 +107,8 @@ bint& bint::operator=(const String& num) {
     return *this;
 }
 
-long long bint::pow(long long b, long long e) {
-    long long result = 1;
+int64 bint::pow(int64 b, int64 e) {
+    int64 result = 1;
     while (e > 0) {
         if ((e & 1) == 1) {
             e -= 1;
@@ -215,9 +218,6 @@ bool bint::operator!=(const bint& num) {
 }
 
 void bint::add(const bint& num) {
-    const List& a = this->z;
-    const List& b = num.z;
-
     if (this->sign == 1 && num.sign == -1) {
         bint res;
         if (*this >= num) {
@@ -251,14 +251,14 @@ void bint::add(const bint& num) {
     }
 
     List res;
-    int N = std::max(a.size(), b.size());
-    long long A, B;
+    int N = std::max(this->z.size(), num.z.size());
+    int64 A, B;
     res.resize(N);
     carry = 0;
 
     for (int i = 0; i < N; ++i) {
-        A = i < static_cast<int>(a.size()) ? a[a.size() - i - 1] : 0;
-        B = i < static_cast<int>(b.size()) ? b[b.size() - i - 1] : 0;
+        A = i < static_cast<int>(this->z.size()) ? this->z[this->z.size() - i - 1] : 0;
+        B = i < static_cast<int>(num.z.size()) ? num.z[num.z.size() - i - 1] : 0;
         res[N - i - 1] = A + B + carry;
 
         if (res[N - i - 1] < base)
@@ -287,9 +287,6 @@ bint bint::operator+(const bint& num) const {
 }
 
 void bint::sub(const bint& num) {
-    List a = this->z;
-    List b = num.z;
-
     if (this->sign == 1 && num.sign == -1) {
         sign = 1;
         bint temp(num), res(*this);
@@ -307,6 +304,9 @@ void bint::sub(const bint& num) {
         z = std::move(temp.z);
         return;
     }
+
+    List a = this->z;
+    List b = num.z;
 
     if (this->sign == 1 && num.sign == 1) {
         if (*this > num)
@@ -330,7 +330,7 @@ void bint::sub(const bint& num) {
 
     List res;
     int N = std::max(a.size(), b.size());
-    long long A, B;
+    int64 A, B;
     res.resize(N);
     borrow = 0;
 
@@ -379,14 +379,12 @@ void bint::lmul(const int& num) {
     else if (this->sign == -1 || num < 0)
         sign = -1;
 
-    const List& a = this->z;
-
     List res;
-    res.resize(a.size());
+    res.resize(this->z.size());
     carry = 0;
 
-    for (int i = static_cast<int>(a.size()) - 1; i >=0; i--) {
-        long long w = a[i];
+    for (int i = static_cast<int>(this->z.size()) - 1; i >=0; i--) {
+        int64 w = this->z[i];
         res[i] = (w * num + carry) % base;
         carry = (w * num + carry) / base;
     }
@@ -398,9 +396,6 @@ void bint::lmul(const int& num) {
 }
 
 void bint::mul(const bint& num) {
-    const List& a = this->z;
-    const List& b = num.z;
-
     sign = 1;
 
     if (this->sign == -1 && num.sign == -1)
@@ -409,15 +404,26 @@ void bint::mul(const bint& num) {
         sign = -1;
 
     List res;
-    res.resize(a.size() + b.size() - 1);
+    res.resize(this->z.size() + num.z.size() - 1);
 
     int i, j;
 
-    for (j = 0; j < static_cast<int>(b.size()); j++)
-        for (i = 0; i < static_cast<int>(a.size()); i++)
-            res[j + i] += a[i] * b[j];
+    for (j = 0; j < static_cast<int>(num.z.size()); j++)
+        for (i = 0; i < static_cast<int>(this->z.size()); i++)
+            res[j + i] += this->z[i] * num.z[j];
 
-    doCarry(res);
+    carry = 0;
+    for (int i = static_cast<int>(res.size()) - 1; i >= 0; i--) {
+        res[i] += carry;
+        if (res[i] < 0)
+            carry = -(-(res[i] + 1) / base + 1);
+        else
+            carry = res[i] / base;
+        res[i] -= carry * base;
+    }
+
+    if (carry > 0)
+        res.insert(res.begin(), carry);
 
     while (!res.empty() && res[0] == 0)
         res.erase(res.begin());
@@ -431,13 +437,63 @@ void bint::mul(const bint& num) {
     z = std::move(res);
 }
 
+void bint::mul_karatsuba(const bint& num) {
+    sign = 1;
+
+    if (this->sign == -1 && num.sign == -1)
+        sign = 1;
+    else if (this->sign == -1 || num.sign == -1)
+        sign = -1;
+
+    int length = std::max(this->z.size(), num.z.size());
+
+    List lhs_padded = this->z;
+    List rhs_padded = num.z;
+    lhs_padded.resize(length, 0);
+    rhs_padded.resize(length, 0);
+
+    if (this->z.size() <= 64 && num.z.size() <= 64) {
+        bint res = *this;
+        res.mul(num);
+        z = std::move(res.z);
+        return;
+    }
+
+    int half = (length + 1) / 2;
+    bint lhs0, lhs1, rhs0, rhs1;
+    lhs0.z.assign(lhs_padded.begin(), lhs_padded.begin() + half);
+    lhs1.z.assign(lhs_padded.begin() + half, lhs_padded.end());
+    rhs0.z.assign(rhs_padded.begin(), rhs_padded.begin() + half);
+    rhs1.z.assign(rhs_padded.begin() + half, rhs_padded.end());
+
+    bint p0 = lhs0;
+    p0.mul_karatsuba(rhs0);
+    bint p1 = lhs1;
+    p1.mul_karatsuba(rhs1);
+    bint p2 = lhs0 + lhs1;
+    p2.mul_karatsuba(rhs0 + rhs1);
+    bint p3 = p2 - (p0 + p1);
+
+    p0.z.resize(p0.z.size() + ((length - half) << 1), 0);
+    p3.z.resize(p3.z.size() + (length - half), 0);
+
+    bint r = (p0 + p1) + p3;
+
+    while (r.z.size() > 1 && r.z[0] == 0)
+        r.z.erase(r.z.begin());
+
+    z = std::move(r.z);
+}
+
 bint bint::operator*(const bint& num) const {
     bint res = *this;
 
     if (bint((base - 1)) >= num)
         res.lmul(num.z[0]);
-    else
+    else if ((res.z.size() + num.z.size() - 1) <= 128)
         res.mul(num);
+    else
+        res.mul_karatsuba(num);
 
     return res;
 }
@@ -453,14 +509,12 @@ void bint::ldiv(const int& num) {
     else if (this->sign == -1 || num < 0)
         sign = -1;
 
-    const List& a = this->z;
-
     List res;
-    res.resize(a.size());
-    long long remainder = 0;
+    res.resize(this->z.size());
+    int64 remainder = 0;
 
-    for (int i = 0; i < static_cast<int>(a.size()); i++) {
-        long long w = a[i];
+    for (int i = 0; i < static_cast<int>(this->z.size()); i++) {
+        int64 w = this->z[i];
         res[i] = (w + remainder) / num;
         remainder = ((w + remainder) % num) * base;
     }
@@ -528,8 +582,7 @@ bint bint::operator/(const bint& num) const {
 bint bint::operator%(const bint& num) const {
     bint res, x, y;
 
-    x = num;
-    if (x == 2)
+    if (bint(2) == num)
         return this->z[this->z.size() - 1] & 1;
 
     x = *this / num;
@@ -589,21 +642,7 @@ bint bint::operator<<(const bint& num) const {
     return res;
 }
 
-void bint::doCarry(List& a) {
-    carry = 0;
-    for (int i = static_cast<int>(a.size()) - 1; i >= 0; i--) {
-        a[i] += carry;
-        if (a[i] < 0)
-            carry = -(-(a[i] + 1) / base + 1);
-        else
-            carry = a[i] / base;
-        a[i] -= carry * base;
-    }
-
-    if (carry > 0)
-        a.insert(a.begin(), carry);
-}
-
+//for debugging
 void bint::print() {
     if (sign < 0)
         printf("-%lld", z[0]);
