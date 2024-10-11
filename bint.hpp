@@ -384,9 +384,9 @@ void bint::lmul(const int& num) {
     carry = 0;
 
     for (int i = static_cast<int>(this->z.size()) - 1; i >=0; i--) {
-        int64 w = this->z[i];
-        res[i] = (w * num + carry) % base;
-        carry = (w * num + carry) / base;
+        int64 w = this->z[i] * num + carry;
+        res[i] = w % base;
+        carry = w / base;
     }
 
     if (carry > 0)
@@ -415,10 +415,7 @@ void bint::mul(const bint& num) {
     carry = 0;
     for (int i = static_cast<int>(res.size()) - 1; i >= 0; i--) {
         res[i] += carry;
-        if (res[i] < 0)
-            carry = -(-(res[i] + 1) / base + 1);
-        else
-            carry = res[i] / base;
+        carry = res[i] / base;
         res[i] -= carry * base;
     }
 
@@ -477,9 +474,9 @@ void bint::mul_karatsuba(const bint& num) {
     p0.z.resize(p0.z.size() + ((length - half) << 1), 0);
     p3.z.resize(p3.z.size() + (length - half), 0);
 
-    bint r = (p0 + p1) + p3;
+    bint r = p0 + p1 + p3;
 
-    while (r.z.size() > 1 && r.z[0] == 0)
+    while (!r.z.empty() && r.z[0] == 0)
         r.z.erase(r.z.begin());
 
     z = std::move(r.z);
@@ -514,9 +511,9 @@ void bint::ldiv(const int& num) {
     int64 remainder = 0;
 
     for (int i = 0; i < static_cast<int>(this->z.size()); i++) {
-        int64 w = this->z[i];
-        res[i] = (w + remainder) / num;
-        remainder = ((w + remainder) % num) * base;
+        int64 w = this->z[i] + remainder;
+        res[i] = w / num;
+        remainder = (w % num) * base;
     }
 
     while (!res.empty() && res[0] == 0)
