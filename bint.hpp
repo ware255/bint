@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <vector>
 #include <string>
+#include <stdexcept>
 
 typedef long long int64;
 
@@ -39,10 +40,11 @@ public:
 
     void add(const bint&);
     void sub(const bint&);
-    void lmul(const int&);
+    void lmul(int);
     void mul(const bint&);
     void mul_karatsuba(const bint&);
     void ldiv(const int&);
+    void divmod(const bint&, const bint&, bint&, int);
     void div(const bint&);
 
     void shr(const bint&);
@@ -52,13 +54,14 @@ public:
     bint operator-(const bint&) const;
     bint operator*(const bint&) const;
     bint operator/(const bint&) const;
-    bint operator%(const bint&) const;
+    bint operator%(const bint&);
 
     bint& operator++();
     bint& operator--();
     bint operator++(int);
     bint operator--(int);
 
+    bint operator ~() const;
     bint operator>>(const bint&) const;
     bint operator<<(const bint&) const;
 
@@ -252,13 +255,16 @@ void bint::add(const bint& num) {
 
     List res;
     int N = std::max(this->z.size(), num.z.size());
-    int64 A, B;
     res.resize(N);
     carry = 0;
 
+    int64 A, B;
+    int a_size = static_cast<int>(this->z.size());
+    int b_size = static_cast<int>(num.z.size());
+
     for (int i = 0; i < N; ++i) {
-        A = i < static_cast<int>(this->z.size()) ? this->z[this->z.size() - i - 1] : 0;
-        B = i < static_cast<int>(num.z.size()) ? num.z[num.z.size() - i - 1] : 0;
+        A = i < a_size ? this->z[this->z.size() - i - 1] : 0;
+        B = i < b_size ? num.z[num.z.size() - i - 1] : 0;
         res[N - i - 1] = A + B + carry;
 
         if (res[N - i - 1] < base)
@@ -330,13 +336,16 @@ void bint::sub(const bint& num) {
 
     List res;
     int N = std::max(a.size(), b.size());
-    int64 A, B;
     res.resize(N);
     borrow = 0;
 
+    int64 A, B;
+    int a_size = static_cast<int>(a.size());
+    int b_size = static_cast<int>(b.size());
+
     for (int i = 0; i < N; ++i) {
-        A = i < static_cast<int>(a.size()) ? a[a.size() - i - 1] : 0;
-        B = i < static_cast<int>(b.size()) ? b[b.size() - i - 1] : 0;
+        A = i < a_size ? a[a.size() - i - 1] : 0;
+        B = i < b_size ? b[b.size() - i - 1] : 0;
         res[N - i - 1] = A - B - borrow;
 
         if (res[N - i - 1] >= 0)
@@ -365,7 +374,7 @@ bint bint::operator-(const bint& num) const {
     return res;
 }
 
-void bint::lmul(const int& num) {
+void bint::lmul(int num) {
     if (num == 0) {
         sign = 0;
         z = {0};
@@ -378,6 +387,9 @@ void bint::lmul(const int& num) {
         sign = 1;
     else if (this->sign == -1 || num < 0)
         sign = -1;
+
+    if (num < 0)
+        num *= -1;
 
     List res;
     res.resize(this->z.size());
@@ -456,18 +468,18 @@ void bint::mul_karatsuba(const bint& num) {
         return;
     }
 
-    int half = (length + 1) / 2;
+    int half = (length + 1) >> 1;
     bint lhs0, lhs1, rhs0, rhs1;
     lhs0.z.assign(lhs_padded.begin(), lhs_padded.begin() + half);
     lhs1.z.assign(lhs_padded.begin() + half, lhs_padded.end());
     rhs0.z.assign(rhs_padded.begin(), rhs_padded.begin() + half);
     rhs1.z.assign(rhs_padded.begin() + half, rhs_padded.end());
 
-    bint p0 = lhs0;
+    bint p0(lhs0);
     p0.mul_karatsuba(rhs0);
-    bint p1 = lhs1;
+    bint p1(lhs1);
     p1.mul_karatsuba(rhs1);
-    bint p2 = lhs0 + lhs1;
+    bint p2(lhs0 + lhs1);
     p2.mul_karatsuba(rhs0 + rhs1);
     bint p3 = p2 - (p0 + p1);
 
@@ -528,6 +540,29 @@ void bint::ldiv(const int& num) {
     z = std::move(res);
 }
 
+void bint::divmod(const bint& a, const bint& b, bint& res, int n) {
+    bint m(b), s(1), r(a), q;
+
+    while (r > m) {
+        m.lmul(2);
+        s.lmul(2);
+    }
+
+    while (r >= b) {
+        while (r < m) {
+            m.ldiv(2);
+            s.ldiv(2);
+        }
+        r.sub(m);
+        q.add(s);
+    }
+
+    if (n)
+        res = q;
+    else
+        res = r;
+}
+
 void bint::div(const bint& num) {
     if (num.z.empty() || (num.z.size() == 1 && num.z[0] == 0))
         throw std::invalid_argument("Division by zero");
@@ -545,24 +580,11 @@ void bint::div(const bint& num) {
         return;
     }
 
-    bint rem(*this);
-    bint m(num), s(1), quotient(0);
+    bint res;
 
-    while (rem > m) {
-        m.lmul(2);
-        s.lmul(2);
-    }
+    bint::divmod(*this, num, res, 1);
 
-    while (rem >= num) {
-        while (rem < m) {
-            m.ldiv(2);
-            s.ldiv(2);
-        }
-        rem.sub(m);
-        quotient.add(s);
-    }
-
-    z = std::move(quotient.z);
+    z = std::move(res.z);
 }
 
 bint bint::operator/(const bint& num) const {
@@ -576,15 +598,19 @@ bint bint::operator/(const bint& num) const {
     return res;
 }
 
-bint bint::operator%(const bint& num) const {
-    bint res, x, y;
-
+bint bint::operator%(const bint& num) {
     if (bint(2) == num)
         return this->z[this->z.size() - 1] & 1;
 
-    x = *this / num;
-    y = x * num;
-    res = *this - y;
+    bint res, x, y;
+
+    if (bint(base - 1) >= num) {
+        x = *this / num;
+        y = x * num;
+        res = *this - y;
+    }
+    else
+        bint::divmod(*this, num, res, 0);
 
     return res;
 }
@@ -637,6 +663,12 @@ bint bint::operator<<(const bint& num) const {
     bint res = *this;
     res.shl(num);
     return res;
+}
+
+bint bint::operator~() const {
+    bint res = *this;
+    res.lmul(-1);
+    return res - 1;
 }
 
 //for debugging
